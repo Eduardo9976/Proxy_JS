@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <main id="app">
+      <p>Contador: <span data-contador> 0 </span></p>
+      <p data-name></p>
+      <hr />
+      <h1>Frutas</h1>
+      <input type="text" id="nameFruit" />
+      <input type="submit" value="add fruit" id="addFruit" />
+      <p data-name></p>
+      <hr />
+      <ul data-fruits></ul>
+      <ul data-outro></ul>
+      <p data-name></p>
+      <hr />
+    </main>
+    <script src="https://unpkg.com/dayjs@1.8.21/dayjs.min.js"></script>
+    <script>
+      // renderiza elementos na tela
+      function render(key) {
+        // Array com todos elementos do dom que essa essa chave ('data-name')
+        const elementsDom = Array.from(
+          document.querySelectorAll(`#app [data-${key}]`)
+        );
+
+        // se não existir elementos ou state[chave] com valores já retorna
+        if (!elementsDom.length || !state[key]) return;
+        else {
+          // verifica se o state[key] não é um array e se não for atribui o valor diretamente para tag
+          if (!Array.isArray(state[key]))
+            elementsDom.forEach((element) => (element.innerText = state[key]));
+          else {
+            // se for um array cria um li para cada valor dentro do estado
+            elementsDom.forEach((element) => {
+              while (element.firstChild)
+                element.removeChild(element.firstChild);
+              // element.innerHTML = "";
+              for (const item of state[key]) {
+                const li = document.createElement("li");
+                li.innerText = item;
+
+                element.append(li);
+              }
+            });
+          }
+        }
+      }
+
+      const handler = {
+        get(target, key, receiver) {
+          const value = Reflect.get(target, key);
+
+          // se o valor for um objeto ou uma funcao ele cria um outro proxy aninhado
+          if (typeof value === "object" || typeof value === "function") {
+            return new Proxy(value, handler);
+          }
+
+          return value;
+        },
+
+        set(target, key, value, receiver) {
+          // se o valor setado for um array, define um id para pode buscar ele
+          if (Array.isArray(value)) {
+            Object.defineProperty(value, "id_master", {
+              value: key,
+              enumerable: false,
+              writable: false,
+              configurable: false,
+            });
+          }
+
+          Reflect.set(target, key, value);
+
+          // se não for um array atualiza o render
+          !Array.isArray(value) && render(key);
+          return true;
+        },
+
+        apply(target, thisArg, argumentsList) {
+          // Realiza o que o método chamado já ia fazer
+          const operation = Reflect.apply(target, thisArg, argumentsList);
+
+          // verifica se o metodo chamado é algum daqui e se for atualiza o dom
+          const methods = ["unshift", "push", "pop", "shift"];
+          methods.includes(target.name) && render(thisArg.id_master);
+
+          return operation;
+        },
+      };
+
+      // const fruits = []
+      // Object.defineProperty(fruits, 'id_master', {
+      //   value: 'fruits',
+      //   enumerable: false,
+      //   writable: false,
+      //   configurable:false
+      // })
+      const state = new Proxy(
+        {
+          // fruits
+        },
+        handler
+      );
+
+      const buttonAdd = document
+        .querySelector("#addFruit")
+        .addEventListener("click", (e) => {
+          e.preventDefault();
+          if (!state.fruits) state.fruits = []
+          state.fruits.push(
+            `${document.querySelector("#nameFruit").value || "Desconhecido"}`
+          );
+        });
+    </script>
+  </body>
+  <style>
+    #app {
+      display: grid;
+      place-items: center;
+    }
+  </style>
+</html>
